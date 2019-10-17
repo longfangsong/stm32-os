@@ -1,6 +1,5 @@
 #include <stm32f103xe.h>
 #include <sched.h>
-#include <stm32f1xx_hal.h>
 #include "context_switch.h"
 
 StackPointer *interrupt_from_thread_stack_pointer = NULL;

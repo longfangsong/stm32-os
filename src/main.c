@@ -26,10 +26,9 @@ void red_control_thread(void *_) {
 }
 
 int main(void) {
-    Scheduler scheduler = create_scheduler();
-    push_thread(&scheduler, create_thread(green_control_thread, NULL));
-    push_thread(&scheduler, create_thread(red_control_thread, NULL));
-    start(&scheduler);
+    push_thread(create_thread(green_control_thread, NULL, 2));
+    push_thread(create_thread(red_control_thread, NULL, 1));
+    start_schedule();
     while (1) {
         __WFI();
     }

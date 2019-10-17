@@ -12,8 +12,9 @@ typedef struct {
     void (*entry)(void *);
 
     void *params;
+    size_t priority;
 } Thread;
 
-Thread create_thread(void (*entry)(void *params), void *params);
+Thread create_thread(void (*entry)(void *params), void *params, size_t priority);
 
 #endif //STM32_OS_ELF_THREAD_H

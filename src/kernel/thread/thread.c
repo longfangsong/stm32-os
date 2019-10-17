@@ -49,14 +49,15 @@ void *init_stack(void *stack_memory, void (*entry_point)(void *), void *params) 
     return stack_top;
 }
 
-Thread create_thread(void (*entry)(void *params), void *params) {
+Thread create_thread(void (*entry)(void *params), void *params, size_t priority) {
     void *stack_memory = kernel_alloc(STACK_SIZE);
     StackPointer stack_top = init_stack(stack_memory + STACK_SIZE, entry, params);
     Thread result = {
             .entry = entry,
             .params = params,
             .stack_begin = stack_memory,
-            .stack_top=stack_top
+            .stack_top=stack_top,
+            .priority=priority
     };
     return result;
 }

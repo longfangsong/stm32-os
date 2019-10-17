@@ -1,2 +1,6 @@
 # Project exclude paths
+.idea
 /cmake-build-debug/
+/CMakeLists_template.txt
+/stm32-os.ioc
+/stm32-os.xml

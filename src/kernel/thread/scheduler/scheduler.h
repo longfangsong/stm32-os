@@ -6,17 +6,29 @@
 #include "./context_switch/context_switch.h"
 #include "../../panic/panic.h"
 
+#define PRIORITY_COUNT 16
+
+typedef struct ThreadListNode {
+    struct ThreadListNode *prev;
+    struct ThreadListNode *next;
+    Thread thread;
+} ThreadListNode;
+
 typedef struct {
-    Thread *threads;
-    uint32_t thread_count;
-    uint32_t current_running;
+    ThreadListNode *head;
+    ThreadListNode *next_run;
+} PriorityThreadGroup;
+
+typedef struct {
+    PriorityThreadGroup priorityThreadGroup[PRIORITY_COUNT];
+    ThreadListNode *current_running;
 } Scheduler;
 
-Scheduler create_scheduler();
+void init_scheduler();
 
-void push_thread(Scheduler *scheduler, Thread thread);
+void push_thread(Thread thread);
 
-void start(Scheduler *scheduler);
+void start_schedule();
 
 void schedule();
 
