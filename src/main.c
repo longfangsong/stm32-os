@@ -2,24 +2,27 @@
 #include "device/led/led.h"
 #include "kernel/thread/scheduler/scheduler.h"
 #include "kernel/api/sleep/sleep.h"
+#include "kernel/api/exit/exit.h"
 
 
 void green_control_thread(void *_) {
-    while (1) {
+    for (size_t i = 0; i < 5; ++i) {
         green_led(LED_ON);
         sleep(500);
         green_led(LED_OFF);
         sleep(500);
     }
+    exit();
 }
 
 void red_control_thread(void *_) {
-    while (1) {
+    for (size_t i = 0; i < 10; ++i) {
         red_led(LED_ON);
         sleep(500);
         red_led(LED_OFF);
         sleep(500);
     }
+    exit();
 }
 
 int main(void) {

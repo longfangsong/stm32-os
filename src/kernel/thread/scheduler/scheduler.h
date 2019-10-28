@@ -29,6 +29,8 @@ void scheduler_init();
 
 void push_thread(Thread thread);
 
+void remove_thread(Thread *thread);
+
 void start_schedule();
 
 void schedule();

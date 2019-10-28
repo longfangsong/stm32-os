@@ -81,6 +81,28 @@ void push_thread(Thread thread) {
     }
 }
 
+void remove_thread(Thread *thread) {
+    PriorityThreadGroup *group = &scheduler.priorityThreadGroup[thread->priority];
+    ThreadOwnedDoubleListNode *current = group->head;
+    do {
+        if (&current->thread == thread) {
+            if (current->next == current->prev) {
+                kernel_free(group->head);
+                group->head = NULL;
+                group->next_run = NULL;
+            } else {
+                current->next->prev = current->prev;
+                current->prev->next = current->next;
+                update_next_run(group);
+                kernel_free(current);
+            }
+            break;
+        } else {
+            current = current->next;
+        }
+    } while (current != group->head);
+}
+
 void schedule() {
     ThreadOwnedDoubleListNode *from = scheduler.current_running;
     ThreadOwnedDoubleListNode *to = NULL;
