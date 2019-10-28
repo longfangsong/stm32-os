@@ -7,29 +7,32 @@
 #include "../../panic/panic.h"
 
 #define PRIORITY_COUNT 16
-
-typedef struct ThreadListNode {
-    struct ThreadListNode *prev;
-    struct ThreadListNode *next;
+typedef struct ThreadOwnedDoubleListNode {
+    struct ThreadOwnedDoubleListNode *prev;
+    struct ThreadOwnedDoubleListNode *next;
     Thread thread;
-} ThreadListNode;
+} ThreadOwnedDoubleListNode;
 
 typedef struct {
-    ThreadListNode *head;
-    ThreadListNode *next_run;
+    ThreadOwnedDoubleListNode *head;
+    ThreadOwnedDoubleListNode *next_run;
 } PriorityThreadGroup;
 
 typedef struct {
     PriorityThreadGroup priorityThreadGroup[PRIORITY_COUNT];
-    ThreadListNode *current_running;
+    ThreadOwnedDoubleListNode *current_running;
 } Scheduler;
 
-void init_scheduler();
+extern Scheduler scheduler;
+
+void scheduler_init();
 
 void push_thread(Thread thread);
 
 void start_schedule();
 
 void schedule();
+
+void update_next_run(PriorityThreadGroup *group);
 
 #endif //STM32_OS_ELF_SCHEDULER_H

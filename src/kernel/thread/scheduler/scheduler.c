@@ -1,8 +1,8 @@
-#include <stm32f103xe.h>
 #include <stm32f1xx_hal.h>
 #include "scheduler.h"
+#include "waiting_queue/waiting_queue.h"
 
-static Scheduler scheduler;
+Scheduler scheduler;
 
 static PriorityThreadGroup create_priority_thread_group() {
     PriorityThreadGroup result = {
@@ -12,15 +12,41 @@ static PriorityThreadGroup create_priority_thread_group() {
     return result;
 }
 
-void init_scheduler() {
+void update_next_run(PriorityThreadGroup *group) {
+    if (group->next_run == NULL) {
+        group->next_run = group->head;
+    }
+    ThreadOwnedDoubleListNode *current_run = group->next_run;
+    ThreadOwnedDoubleListNode *looking_at = current_run->next;
+    while (looking_at != current_run) {
+        if (looking_at->thread.state == Ready) {
+            group->next_run = looking_at;
+            break;
+        }
+        looking_at = looking_at->next;
+    }
+    if (looking_at == current_run && looking_at->thread.state != Ready) {
+        group->next_run = NULL;
+    }
+}
+
+__weak void idle_thread(void *_) {
+    while (1) {
+        __WFI();
+        schedule();
+    }
+}
+
+void scheduler_init() {
     for (size_t i = 0; i < PRIORITY_COUNT; ++i) {
         scheduler.priorityThreadGroup[i] = create_priority_thread_group();
     }
+    push_thread(create_thread(idle_thread, NULL, PRIORITY_COUNT - 1));
     scheduler.current_running = NULL;
 }
 
 void start_schedule() {
-    ThreadListNode *to = NULL;
+    ThreadOwnedDoubleListNode *to = NULL;
     for (size_t i = 0; i < PRIORITY_COUNT; ++i) {
         if (scheduler.priorityThreadGroup[i].head != NULL) {
             to = scheduler.priorityThreadGroup[i].next_run;
@@ -39,7 +65,7 @@ void push_thread(Thread thread) {
         panic_with_message("No such priority!");
     }
     PriorityThreadGroup *group = &scheduler.priorityThreadGroup[thread.priority];
-    ThreadListNode *node = kernel_alloc(sizeof(ThreadListNode));
+    ThreadOwnedDoubleListNode *node = kernel_alloc(sizeof(ThreadOwnedDoubleListNode));
     node->thread = thread;
     if (group->head == NULL) {
         node->next = node;
@@ -47,7 +73,7 @@ void push_thread(Thread thread) {
         group->head = node;
         group->next_run = node;
     } else {
-        ThreadListNode *prev = group->head->prev;
+        ThreadOwnedDoubleListNode *prev = group->head->prev;
         node->prev = prev;
         prev->next = node;
         node->next = group->head;
@@ -56,12 +82,12 @@ void push_thread(Thread thread) {
 }
 
 void schedule() {
-    ThreadListNode *from = scheduler.current_running;
-    ThreadListNode *to = NULL;
+    ThreadOwnedDoubleListNode *from = scheduler.current_running;
+    ThreadOwnedDoubleListNode *to = NULL;
     for (size_t i = 0; i < PRIORITY_COUNT; ++i) {
-        if (scheduler.priorityThreadGroup[i].head != NULL) {
+        if (scheduler.priorityThreadGroup[i].next_run != NULL) {
             to = scheduler.priorityThreadGroup[i].next_run;
-            scheduler.priorityThreadGroup[i].next_run = scheduler.priorityThreadGroup[i].next_run->next;
+            update_next_run(&scheduler.priorityThreadGroup[i]);
             break;
         }
     }
@@ -71,3 +97,8 @@ void schedule() {
     }
 }
 
+void SysTick_Handler(void) {
+    HAL_IncTick();
+    update_waiting_queue(HAL_GetTick());
+    schedule();
+}

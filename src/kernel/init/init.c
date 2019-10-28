@@ -2,6 +2,7 @@
 #include "../panic/panic.h"
 #include "../heap/heap.h"
 #include "../../device/device_init/devices_init.h"
+#include "../thread/scheduler/scheduler.h"
 
 static void interrupt_init() {
     HAL_NVIC_SetPriority(PendSV_IRQn, 0xf, 0xf);
@@ -50,4 +51,5 @@ void kernel_init() {
     heap_init();
     interrupt_init();
     devices_init();
+    scheduler_init();
 }

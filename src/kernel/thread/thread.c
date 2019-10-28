@@ -57,7 +57,8 @@ Thread create_thread(void (*entry)(void *params), void *params, size_t priority)
             .params = params,
             .stack_begin = stack_memory,
             .stack_top=stack_top,
-            .priority=priority
+            .priority=priority,
+            .state=Ready
     };
     return result;
 }

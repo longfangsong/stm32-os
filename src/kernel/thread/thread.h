@@ -5,6 +5,12 @@
 #include "scheduler/context_switch/context_switch.h"
 
 #define STACK_SIZE 512
+
+typedef enum {
+    Ready,
+    Block
+} State;
+
 typedef struct {
     void *stack_top;
     StackPointer stack_begin;
@@ -13,6 +19,7 @@ typedef struct {
 
     void *params;
     size_t priority;
+    State state;
 } Thread;
 
 Thread create_thread(void (*entry)(void *params), void *params, size_t priority);
