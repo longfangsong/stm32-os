@@ -86,6 +86,11 @@ SECTIONS
     *(.glue_7t)        /* glue thumb to arm code */
     *(.eh_frame)
 
+    . = ALIGN(4);
+    __init_functions_start = .;
+    KEEP(*(SORT(.init_fn*)))
+    __init_functions_end = .;
+
     KEEP (*(.init))
     KEEP (*(.fini))
 

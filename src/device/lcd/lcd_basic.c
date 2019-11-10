@@ -1,5 +1,6 @@
 #include "font.h"
 #include "lcd_basic.h"
+#include "../../kernel/init/init.h"
 
 void delay_us(uint16_t time) {
     uint16_t i = 0;
@@ -645,6 +646,8 @@ void lcd_Init(void) {
     HAL_GPIO_WritePin(GPIOC, GPIO_PIN_10, GPIO_PIN_SET);
     LCD_Clear(WHITE);
 }
+
+EXPORT_DEVICE_INIT(lcd_Init);
 
 //清屏函数
 // color:要清屏的填充色

@@ -1,6 +1,7 @@
 #include <sched.h>
 #include "heap.h"
 #include "../align.h"
+#include "../init/init.h"
 
 extern int __HEAP_START;
 extern int __HEAP_END;
@@ -14,7 +15,7 @@ uint32_t is_empty(AllocatedMemoryRange range) {
     return range.begin == NULL && range.end == NULL;
 }
 
-#define ALLOCATED_INFO_LENGTH 64
+#define ALLOCATED_INFO_LENGTH 128
 
 typedef struct {
     AllocatedMemoryRange *allocated_info;
@@ -40,6 +41,8 @@ void heap_init() {
     };
     memoryControllerBlock = block;
 }
+
+EXPORT_KERNEL_INIT_1(heap_init);
 
 static uint32_t find_alloc_info_pos(uint32_t size) {
     if (is_empty(memoryControllerBlock.allocated_info[0])) {

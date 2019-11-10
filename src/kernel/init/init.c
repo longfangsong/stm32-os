@@ -1,12 +1,16 @@
 #include "stm32f1xx_hal.h"
 #include "../panic/panic.h"
+#include "init.h"
 #include "../heap/heap.h"
-#include "../../device/device_init/devices_init.h"
+#include "../../device/lcd/lcd_basic.h"
 #include "../thread/scheduler/scheduler.h"
+#include "../../device/led/led.h"
 
-static void interrupt_init() {
+void interrupt_init() {
     HAL_NVIC_SetPriority(PendSV_IRQn, 0xf, 0xf);
 }
+
+EXPORT_BOARD_INIT(interrupt_init);
 
 static void SystemClock_Config(void) {
     RCC_OscInitTypeDef RCC_OscInitStruct = {0};
@@ -32,6 +36,24 @@ static void SystemClock_Config(void) {
     }
 }
 
+EXPORT_BOARD_INIT(SystemClock_Config);
+
+//static void MX_USART1_UART_Init(void) {
+//    huart1.Instance = USART1;
+//    huart1.Init.BaudRate = 115200;
+//    huart1.Init.WordLength = UART_WORDLENGTH_8B;
+//    huart1.Init.StopBits = UART_STOPBITS_1;
+//    huart1.Init.Parity = UART_PARITY_NONE;
+//    huart1.Init.Mode = UART_MODE_TX_RX;
+//    huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+//    huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+//    if (HAL_UART_Init(&huart1) != HAL_OK) {
+//        panic_with_message("uart");
+//    }
+//}
+//
+//EXPORT_BOARD_INIT(MX_USART1_UART_Init);
+
 /**
  * @brief GPIO Initialization Function
  * @param None
@@ -44,12 +66,13 @@ static void MX_GPIO_Init(void) {
     __HAL_RCC_GPIOD_CLK_ENABLE();
 }
 
-void kernel_init() {
+EXPORT_BOARD_INIT(MX_GPIO_Init);
+
+void init_all() {
+    extern init_function __init_functions_start;
+    extern init_function __init_functions_end;
     HAL_Init();
-    SystemClock_Config();
-    MX_GPIO_Init();
-    heap_init();
-    interrupt_init();
-    devices_init();
-    scheduler_init();
+    for (init_function *init = &__init_functions_start; init != &__init_functions_end; ++init) {
+        (*init)();
+    }
 }

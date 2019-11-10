@@ -1,8 +1,11 @@
 #include <stm32f1xx_hal.h>
 #include "scheduler.h"
 #include "waiting_queue/waiting_queue.h"
+#include "../../init/init.h"
 
 Scheduler scheduler;
+
+uint8_t scheduler_inited = 0;
 
 static PriorityThreadGroup create_priority_thread_group() {
     PriorityThreadGroup result = {
@@ -33,7 +36,6 @@ void update_next_run(PriorityThreadGroup *group) {
 __weak void idle_thread(void *_) {
     while (1) {
         __WFI();
-        schedule();
     }
 }
 
@@ -43,7 +45,10 @@ void scheduler_init() {
     }
     push_thread(create_thread(idle_thread, NULL, PRIORITY_COUNT - 1));
     scheduler.current_running = NULL;
+    scheduler_inited = 1;
 }
+
+EXPORT_KERNEL_INIT_2(scheduler_init);
 
 void start_schedule() {
     ThreadOwnedDoubleListNode *to = NULL;
@@ -115,12 +120,18 @@ void schedule() {
     }
     scheduler.current_running = to;
     if (to != NULL && to != from) {
-        context_switch(&from->thread.stack_top, &to->thread.stack_top);
+        if (from == NULL) {
+            context_switch(NULL, &to->thread.stack_top);
+        } else {
+            context_switch(&from->thread.stack_top, &to->thread.stack_top);
+        }
     }
 }
 
 void SysTick_Handler(void) {
     HAL_IncTick();
-    update_waiting_queue(HAL_GetTick());
-    schedule();
+    if (scheduler_inited) {
+        update_waiting_queue(HAL_GetTick());
+        schedule();
+    }
 }
