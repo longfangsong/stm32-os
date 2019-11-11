@@ -34,7 +34,6 @@ typedef struct WaitingNode {
 WaitingNode *waitingList = NULL;
 
 void thread_waiting(Thread *thread, uint32_t waiting_for_tick) {
-    __disable_irq();
     thread->state = Block;
     if (waitingList == NULL) {
         waitingList = kernel_alloc(sizeof(WaitingNode));
@@ -62,7 +61,6 @@ void thread_waiting(Thread *thread, uint32_t waiting_for_tick) {
     }
     update_next_run(&scheduler.priorityThreadGroup[thread->priority]);
     schedule();
-    __enable_irq();
 }
 
 void update_waiting_queue(uint32_t now_tick) {

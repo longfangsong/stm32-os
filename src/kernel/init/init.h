@@ -13,6 +13,4 @@ typedef void (*init_function)(void);
 #define EXPORT_KERNEL_INIT_1(func) EXPORT_INIT(func, "3")
 #define EXPORT_KERNEL_INIT_2(func) EXPORT_INIT(func, "4")
 
-void init_all();
-
 #endif //STM32_OS_ELF_INIT_H

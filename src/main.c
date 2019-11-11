@@ -3,6 +3,7 @@
 #include "kernel/thread/scheduler/scheduler.h"
 #include "kernel/api/sleep/sleep.h"
 #include "kernel/api/exit/exit.h"
+#include "device/uart/uart.h"
 
 
 void green_control_thread(void *_) {
@@ -25,13 +26,20 @@ void red_control_thread(void *_) {
     exit();
 }
 
+void uart_thread(void *_) {
+    while (1) {
+        uart_send("hello!\r\n", 8);
+        sleep(1000);
+    }
+}
+
 int main(void) {
-    push_thread(create_thread(green_control_thread, NULL, 1));
-    push_thread(create_thread(red_control_thread, NULL, 2));
+//    push_thread(create_thread(green_control_thread, NULL, 1));
+//    push_thread(create_thread(red_control_thread, NULL, 1));
+    push_thread(create_thread(uart_thread, NULL, 1));
     start_schedule();
     while (1) {
         __WFI();
     }
     return 0;
 }
-
