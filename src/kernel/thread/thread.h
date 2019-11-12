@@ -3,6 +3,7 @@
 
 #include <sched.h>
 #include "scheduler/context_switch/context_switch.h"
+#include "../types.h"
 
 #define STACK_SIZE 512
 
@@ -12,7 +13,7 @@ typedef enum {
 } State;
 
 typedef struct {
-    void *stack_top;
+    Address stack_top;
     StackPointer stack_begin;
 
     void (*entry)(void *);

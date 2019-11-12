@@ -8,10 +8,10 @@ typedef struct {
     uint32_t r2;
     uint32_t r3;
     uint32_t r12;
-    void *link_register;
-    void *program_counter;
+    Address link_register;
+    Address program_counter;
     uint32_t program_states_register;
-} ExceptionStackFrame;
+} AutoPushStackFrame;
 
 typedef struct {
     uint32_t r4;
@@ -23,11 +23,11 @@ typedef struct {
     uint32_t r10;
     uint32_t r11;
 
-    ExceptionStackFrame exception_stack_frame;
+    AutoPushStackFrame exception_stack_frame;
 } StackFrame;
 
 void *init_stack(void *stack_memory, void (*entry_point)(void *), void *params) {
-    uint8_t *stack_top = (uint8_t *) ALIGN_DOWN((uint32_t) stack_memory, 8u);
+    byte *stack_top = (byte *) ALIGN_DOWN((uint32_t) stack_memory, 8u);
     stack_top -= sizeof(StackFrame);
     StackFrame *frame = (StackFrame *) (stack_top);
     frame->exception_stack_frame.r0 = (uint32_t) params;
@@ -53,9 +53,9 @@ Thread create_thread(void (*entry)(void *params), void *params, size_t priority)
     void *stack_memory = kernel_alloc(STACK_SIZE);
     StackPointer stack_top = init_stack(stack_memory + STACK_SIZE, entry, params);
     Thread result = {
-            .entry = entry,
-            .params = params,
-            .stack_begin = stack_memory,
+            .entry=entry,
+            .params=params,
+            .stack_begin=stack_memory,
             .stack_top=stack_top,
             .priority=priority,
             .state=Ready

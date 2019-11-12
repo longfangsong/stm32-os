@@ -34,8 +34,8 @@ void uart_thread(void *_) {
 }
 
 int main(void) {
-//    push_thread(create_thread(green_control_thread, NULL, 1));
-//    push_thread(create_thread(red_control_thread, NULL, 1));
+    push_thread(create_thread(green_control_thread, NULL, 1));
+    push_thread(create_thread(red_control_thread, NULL, 1));
     push_thread(create_thread(uart_thread, NULL, 1));
     start_schedule();
     while (1) {

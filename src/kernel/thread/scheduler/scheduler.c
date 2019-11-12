@@ -5,7 +5,7 @@
 
 Scheduler scheduler;
 
-uint8_t scheduler_inited = 0;
+uint8_t scheduler_started = 0;
 
 static PriorityThreadGroup create_priority_thread_group() {
     PriorityThreadGroup result = {
@@ -45,7 +45,6 @@ void scheduler_init() {
     }
     push_thread(create_thread(idle_thread, NULL, PRIORITY_COUNT - 1));
     scheduler.current_running = NULL;
-    scheduler_inited = 1;
 }
 
 EXPORT_KERNEL_INIT_2(scheduler_init);
@@ -60,6 +59,7 @@ void start_schedule() {
         }
     }
     scheduler.current_running = to;
+    scheduler_started = 1;
     if (to != NULL) {
         context_switch_to(&to->thread.stack_top);
     }
@@ -96,6 +96,7 @@ void remove_thread(Thread *thread) {
                 group->head = NULL;
                 group->next_run = NULL;
             } else {
+                group->next_run = current->next;
                 current->next->prev = current->prev;
                 current->prev->next = current->next;
                 update_next_run(group);
@@ -130,7 +131,7 @@ void schedule() {
 
 void SysTick_Handler(void) {
     HAL_IncTick();
-    if (scheduler_inited) {
+    if (scheduler_started) {
         update_waiting_queue(HAL_GetTick());
         schedule();
     }

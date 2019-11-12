@@ -2,100 +2,106 @@
 #include "heap.h"
 #include "../align.h"
 #include "../init/init.h"
+#include "../types.h"
 
-extern int __HEAP_START;
-extern int __HEAP_END;
-
-typedef struct {
-    void *begin;
-    void *end;
-} AllocatedMemoryRange;
-
-uint32_t is_empty(AllocatedMemoryRange range) {
-    return range.begin == NULL && range.end == NULL;
-}
-
-#define ALLOCATED_INFO_LENGTH 128
-
-typedef struct {
-    AllocatedMemoryRange *allocated_info;
-    void *buffer_begin;
-    void *buffer_end;
-} MemoryControllerBlock;
-#define HEAP_CONTROL_SPACE (ALLOCATED_INFO_LENGTH*sizeof(AllocatedMemoryRange))
-MemoryControllerBlock memoryControllerBlock;
+static Address begin_addr;
+static Address end_addr;
 
 void heap_init() {
-    void *begin_addr = &__HEAP_START;
-    void *end_addr = &__HEAP_END;
-    uint32_t begin_aligned = ALIGN((uint32_t) begin_addr, 4u);
-    uint32_t end_aligned = ALIGN((uint32_t) end_addr, 4u);
-    uint32_t real_free_space = begin_aligned + HEAP_CONTROL_SPACE;
-    for (uint32_t i = begin_aligned; i < real_free_space; i += 4) {
-        *((uint32_t *) (i)) = 0;
+    extern int __HEAP_START;
+    extern int __HEAP_END;
+    begin_addr = &__HEAP_START;
+    end_addr = &__HEAP_END;
+    Address begin_aligned = (Address) ALIGN((uint32_t) begin_addr, 4u);
+    Address end_aligned = (Address) ALIGN((uint32_t) end_addr, 4u);
+#ifndef NDEBUG
+    for (uint32_t *i = begin_aligned; i < (uint32_t *) end_aligned; ++i) {
+        *i = 0xdeadbeef;
     }
-    MemoryControllerBlock block = {
-            (AllocatedMemoryRange *) begin_aligned,
-            (void *) real_free_space,
-            (void *) end_aligned
-    };
-    memoryControllerBlock = block;
+#endif
 }
 
 EXPORT_KERNEL_INIT_1(heap_init);
 
-static uint32_t find_alloc_info_pos(uint32_t size) {
-    if (is_empty(memoryControllerBlock.allocated_info[0])) {
-        return 0;
-    }
-    for (size_t i = 1; i < ALLOCATED_INFO_LENGTH; ++i) {
-        if (is_empty(memoryControllerBlock.allocated_info[i])) {
-            return i;
-        } else if ((u_int8_t *) memoryControllerBlock.allocated_info[i].begin -
-                   (u_int8_t *) memoryControllerBlock.allocated_info[i - 1].end > size) {
-            return i;
-        }
-    }
-    return (uint32_t) -1;
+typedef struct AllocatedMemory {
+    struct AllocatedMemory *prev;
+    struct AllocatedMemory *next;
+    size_t size;
+} AllocatedMemory;
+
+static AllocatedMemory *allocated_list;
+
+static inline Address allocated_memory_start(AllocatedMemory *this) {
+    return (Address) ((byte *) this + sizeof(AllocatedMemory));
 }
 
-void *kernel_alloc(uint32_t size) {
-    uint32_t alloc_info_pos = find_alloc_info_pos(size + 4);
-    if (alloc_info_pos == (uint32_t) -1)
-        return NULL;
-    if (!is_empty(memoryControllerBlock.allocated_info[alloc_info_pos])) {
-        for (size_t i = ALLOCATED_INFO_LENGTH - 1; i > alloc_info_pos; --i) {
-            if (!is_empty(memoryControllerBlock.allocated_info[i - 1])) {
-                memoryControllerBlock.allocated_info[i] = memoryControllerBlock.allocated_info[i - 1];
-                *((uint32_t *) (memoryControllerBlock.allocated_info[i].begin)) += 1;
-            }
-        }
-    }
-    void *begin;
-    if (alloc_info_pos == 0) {
-        begin = memoryControllerBlock.buffer_begin;
+static inline Address allocated_memory_end(AllocatedMemory *this) {
+    return (Address) ((byte *) allocated_memory_start(this) + this->size);
+}
+
+byte is_free_space_after_large_enough(AllocatedMemory *this, size_t space_request) {
+    AllocatedMemory *next = this->next;
+    if (next == NULL) {
+        return 1;
     } else {
-        begin = memoryControllerBlock.allocated_info[alloc_info_pos - 1].end;
+        Address next_start = (Address) next;
+        return (byte *) next_start - (byte *) allocated_memory_end(this) >= space_request;
     }
-    void *end = ((uint8_t *) (begin) + size + 4);
-    memoryControllerBlock.allocated_info[alloc_info_pos].begin = begin;
-    memoryControllerBlock.allocated_info[alloc_info_pos].end = end;
-    *((uint32_t *) (memoryControllerBlock.allocated_info[alloc_info_pos].begin)) = alloc_info_pos;
-    return (void *) ((unsigned char *) (begin) + 4);
+}
+
+AllocatedMemory *find_first_before_large_enough_space(size_t space_request) {
+    if (allocated_list == NULL) {
+        return NULL;
+    }
+    AllocatedMemory *current_looking = allocated_list;
+    while (!is_free_space_after_large_enough(current_looking, space_request)) {
+        current_looking = current_looking->next;
+    }
+    return current_looking;
+}
+
+void *kernel_alloc(size_t size) {
+    if (allocated_list == NULL) {
+        AllocatedMemory *new_allocated = begin_addr;
+        new_allocated->next = new_allocated;
+        new_allocated->prev = new_allocated;
+        new_allocated->size = size;
+        allocated_list = new_allocated;
+        return allocated_memory_start(new_allocated);
+    }
+    if ((byte *) begin_addr - (byte *) allocated_list >= size + sizeof(AllocatedMemory)) {
+        AllocatedMemory *new_allocated = begin_addr;
+        AllocatedMemory *old_prev = allocated_list->prev;
+        old_prev->next = new_allocated;
+        new_allocated->prev = old_prev;
+        allocated_list = new_allocated;
+        return allocated_memory_start(new_allocated);
+    }
+    AllocatedMemory *before_new_allocated = find_first_before_large_enough_space(size);
+    AllocatedMemory *old_next = before_new_allocated->next;
+    AllocatedMemory *new_allocated = allocated_memory_end(before_new_allocated);
+
+    before_new_allocated->next = new_allocated;
+    new_allocated->prev = before_new_allocated;
+
+    new_allocated->next = old_next;
+    old_next->prev = new_allocated;
+
+    new_allocated->size = size;
+    return allocated_memory_start(new_allocated);
 }
 
 void kernel_free(void *position) {
     if (position == NULL) {
         return;
     }
-    void *real_begin = ((unsigned char *) (position) - 4);
-    for (uint32_t index = *((uint32_t *) (real_begin)); index < ALLOCATED_INFO_LENGTH - 1; ++index) {
-        if (is_empty(memoryControllerBlock.allocated_info[index + 1])) {
-            memoryControllerBlock.allocated_info[index] = memoryControllerBlock.allocated_info[index + 1];
-            break;
-        } else {
-            memoryControllerBlock.allocated_info[index] = memoryControllerBlock.allocated_info[index + 1];
-            *((uint32_t *) (memoryControllerBlock.allocated_info[index].begin)) -= 1;
-        }
+    AllocatedMemory *control_block = (AllocatedMemory *) ((byte *) position - sizeof(AllocatedMemory));
+    if (control_block->prev == control_block->next) {
+        allocated_list = NULL;
+    } else {
+        AllocatedMemory *old_prev = control_block->prev;
+        AllocatedMemory *old_next = control_block->next;
+        old_prev->next = old_next;
+        old_next->prev = old_prev;
     }
 }
